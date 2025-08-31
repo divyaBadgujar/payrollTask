@@ -1,0 +1,55 @@
+.PreLogin {
+    display: flex;
+    width: 100vw;
+    height: 100vh;
+    // background-color: pink;
+    font-family: 'Segoe UI';
+
+    .leftSection {
+        width: 46%;
+        height: 100%;
+        background-image: url("../../assets/PreLoginImage.jpg");
+        background-size: cover;
+        background-position: center;
+        display: flex;
+        justify-content: center;
+        align-items: flex-end;
+
+        .textSection {
+            color: White;
+            margin-bottom: 3.5rem;
+            width: 31rem;
+
+            h2 {
+                font-size: 1.625rem;
+                font-weight: 500;
+            }
+            p {
+                font-size: 0.975rem;
+            }
+        }
+    }
+
+    .rightSection {
+        width: 54%;
+        height: 100%;
+        // background-color: beige;
+        background-color: gainsboro;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+}
+
+
+@media screen and (max-width: "668px"){
+    .PreLogin {
+        .leftSection {
+            display: none;
+        }
+        .rightSection {
+            width: 100%;
+            overflow-y: hidden;
+        }
+    }
+}
