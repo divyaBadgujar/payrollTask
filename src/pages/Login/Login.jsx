@@ -10,7 +10,7 @@ import { useForm } from "react-hook-form";
 import styles from "./Login.module.scss";
 import logo from "../../assets/FFC-logo.png";
 import { useDispatch } from "react-redux";
-import  { LOGIN } from "../../services/apiUrl";
+import { LOGIN } from "../../services/apiUrl";
 import { userLogin } from "../../store/slices/authSlice";
 import { useNavigate } from "react-router-dom";
 
@@ -29,7 +29,7 @@ const Login = () => {
     try {
       const res = await dispatch(userLogin(data));
       console.log(res?.payload);
-      if(res?.payload === true){
+      if (res?.payload === true) {
         navigate("/dashboard");
       }
     } catch (error) {
@@ -48,7 +48,7 @@ const Login = () => {
       <Box className={styles.inputSection}>
         <form onSubmit={handleSubmit(onSubmit)}>
           <TextField
-            label="username"
+            label="Email Id/Mobile No"
             variant="standard"
             fullWidth
             margin="normal"
@@ -72,21 +72,41 @@ const Login = () => {
             error={!!errors.password}
             helperText={errors.password ? errors.password.message : ""}
           />
-          <Button
-            type="submit"
-            variant="contained"
-            color="primary"
-            fullWidth
-            className={styles.button}
-            disabled={isSubmitting}
-            startIcon={
-              isSubmitting ? (
-                <CircularProgress size={20} color="inherit" />
-              ) : null
-            }
-          >
-            {isSubmitting ? "Signing In" : "Sign In"}
-          </Button>
+          <Box className={styles.actionRow}>
+            <Typography
+              variant="body2"
+              className={styles.forgot}
+            >
+              Forgot Password?
+            </Typography>
+            <Button
+              type="submit"
+              variant="contained"
+              color="primary"
+              className={styles.button}
+              disabled={isSubmitting}
+              startIcon={
+                isSubmitting ? (
+                  <CircularProgress size={20} color="inherit" />
+                ) : null
+              }
+            >
+              {isSubmitting ? "Signing In" : "Sign In"}
+            </Button>
+
+            <Typography variant="body2" className={styles.orText}>
+              OR
+            </Typography>
+
+            <Button
+              type="button"
+              variant="contained"
+              color="primary"
+              className={styles.secondaryButton}
+            >
+              Sign In With OTP
+            </Button>
+          </Box>
         </form>
       </Box>
     </Box>

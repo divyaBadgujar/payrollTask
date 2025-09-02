@@ -4,38 +4,66 @@ import {
   ADD_TASK,
   DELETE_TASK,
   TASK,
+  UNDO_TASK,
+  UPDATE_TASK_FIELD,
   UPDATE_TASK_STATUS,
 } from "../../services/apiUrl";
 import { defaultTaskPayload, formatData } from "../../utils/utils";
 import toast from "../../utils/toast";
 
 const initialState = {
-  team: {},
-  tasks: [],
-  comments: [],
+  pendingTasks: [],
+  completedTasks: [],
   totalCount: 0,
-  filterData: {},
   loading: false,
   hasError: null,
 };
+
+export const toggleTaskFavourite = createAsyncThunk(
+  "task/toggleTaskFavourite",
+  async ({ taskId, currentValue, isMyTask }, { rejectWithValue }) => {
+    try {
+      const response = await privateAPI.put(
+        `${UPDATE_TASK_FIELD}?taskId=${taskId}`,
+        {
+          FieldName: "IsFavourite",
+          Value: !currentValue,
+          IsMyTask: isMyTask,
+        }
+      );
+
+      if (response.data?.Status !== 200) {
+        throw new Error(response.data?.Message || "Failed to update favourite");
+      }
+
+      return { taskId, value: !currentValue };
+    } catch (error) {
+      console.log(error);
+      return rejectWithValue(error.response?.data || error.message);
+    }
+  }
+);
 
 export const fetchTasks = createAsyncThunk(
   "task/fetchTasks",
   async (payload) => {
     try {
       const response = await privateAPI.post(TASK, payload);
-      if (response.data?.status === 404) {
+
+      if (response.data?.Status !== 200) {
         return {
-          tasks: [],
-          comments: [],
+          pendingTasks: [],
+          completedTasks: [],
           totalCount: 0,
         };
       }
 
+      const apiData = response.data.data;
+
       return {
-        tasks: response?.data?.data?.TaskList || [],
-        comments: response?.data?.data?.CommentList || [],
-        totalCount: response?.data?.data?.TotalCount || 0,
+        pendingTasks: apiData?.Pending || [],
+        completedTasks: apiData?.Completed || [],
+        totalCount: apiData?.TotalRecords || 0,
       };
     } catch (error) {
       console.log(error);
@@ -43,6 +71,7 @@ export const fetchTasks = createAsyncThunk(
     }
   }
 );
+
 
 export const addTask = createAsyncThunk(
   "task/addTask",
@@ -88,6 +117,46 @@ export const updateTaskStatus = createAsyncThunk(
   }
 );
 
+export const markTaskCompleted = createAsyncThunk(
+  "task/markTaskCompleted",
+  async ({ taskId, isMyTask }, { dispatch, rejectWithValue }) => {
+    try {
+      const res = await privateAPI.put(
+        `${UPDATE_TASK_FIELD}?taskId=${taskId}`,
+        {
+          FieldName: "TaskStatus",
+          Value: 100,       // ✅ Completed
+          IsMyTask: isMyTask,
+        }
+      );
+
+      if (res?.data?.Status !== 200) {
+        throw new Error(res?.data?.Message || "Failed to mark completed");
+      }
+
+      toast.success("Task moved to Completed");
+      dispatch(fetchTasks(defaultTaskPayload));
+      return { taskId };
+    } catch (err) {
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
+
+export const undoTask = createAsyncThunk(
+  "task/undoTask",
+  async ({ taskId, isMyTask }, { dispatch }) => {
+    try {
+      await privateAPI.put(`${UNDO_TASK}?taskId=${taskId}&isMyTask=${isMyTask}`);
+      toast.success("Task moved back to Pending");
+      dispatch(fetchTasks(defaultTaskPayload));
+    } catch (error) {
+      console.log(error);
+      throw error.response?.data || error.message;
+    }
+  }
+);
+
 const taskSlice = createSlice({
   name: "task",
   initialState,
@@ -98,8 +167,19 @@ const taskSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      .addCase(toggleTaskFavourite.fulfilled, (state, action) => {
+        const { taskId, value } = action.payload;
 
-    //---------------- GET ALL THE TASKS --------------------
+        // update in pendingTasks
+        const pendingTask = state.pendingTasks.find((t) => t.TaskId === taskId);
+        if (pendingTask) pendingTask.IsFavourite = value;
+
+        // update in completedTasks
+        const completedTask = state.completedTasks.find((t) => t.TaskId === taskId);
+        if (completedTask) completedTask.IsFavourite = value;
+      })
+
+
       .addCase(fetchTasks.pending, (state) => {
         state.loading = true;
         state.hasError = null;
@@ -107,17 +187,18 @@ const taskSlice = createSlice({
       .addCase(fetchTasks.fulfilled, (state, action) => {
         state.loading = false;
         state.hasError = null;
-        state.tasks = action.payload.tasks;
-        state.comments = action.payload.comments;
+        state.pendingTasks = action.payload.pendingTasks;
+        state.completedTasks = action.payload.completedTasks;
         state.totalCount = action.payload.totalCount;
       })
+
       .addCase(fetchTasks.rejected, (state, action) => {
         state.loading = false;
         state.hasError = action.error.message;
       })
 
 
-    //--------------------- ADD TASK STATUS ---------------------
+      //--------------------- ADD TASK STATUS ---------------------
       .addCase(addTask.pending, (state) => {
         state.loading = true;
         state.hasError = null;
@@ -131,7 +212,7 @@ const taskSlice = createSlice({
         state.hasError = action.error.message;
       })
 
-    //------------------- DELETE TASK STATUS -----------------
+      //------------------- DELETE TASK STATUS -----------------
       .addCase(deleteTask.pending, (state) => {
         state.loading = true;
         state.hasError = null;
@@ -145,7 +226,7 @@ const taskSlice = createSlice({
         state.hasError = action.error.message;
       })
 
-    //---------------- UPDATE TASK STATUS -------------------------
+      //---------------- UPDATE TASK STATUS -------------------------
       .addCase(updateTaskStatus.pending, (state) => {
         state.loading = true;
         state.hasError = null;
@@ -157,8 +238,23 @@ const taskSlice = createSlice({
       .addCase(updateTaskStatus.rejected, (state, action) => {
         state.loading = false;
         state.hasError = action.error.message;
-      });
-  },
+      })
+
+      // ------------------- UNDO TASK STATUS -----------------
+    .addCase(undoTask.pending, (state) => {
+        state.loading = true;
+        state.hasError = null;
+      })
+    .addCase(undoTask.fulfilled, (state) => {
+      state.loading = false;
+      state.hasError = null;
+    })
+    .addCase(undoTask.rejected, (state, action) => {
+      state.loading = false;
+      state.hasError = action.error.message;
+    });
+
+},
 });
 
 export const { setFilterData } = taskSlice.actions;

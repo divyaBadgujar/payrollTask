@@ -11,6 +11,7 @@ const AppLayout = () => {
   const navigate = useNavigate();
   const [currentTime, setCurrentTime] = useState("");
   const [currentDate, setCurrentDate] = useState("");
+  const [pageTitle, setPageTitle] = useState("Dashboard");
   const [punchedIn, setPunchedIn] = useState(false);
 
   const handleLogout = () => {
@@ -66,7 +67,10 @@ const AppLayout = () => {
               alignItems="center"
               gap={1.5}
               className={styles.navCard}
-              onClick={() => navigate(menu.route)}
+              onClick={() => {
+                setPageTitle(menu.title); 
+                navigate(menu.route);
+              }}
             >
               <img src={menu.icon} alt="icon" />
               <Typography variant="p">{menu.title}</Typography>
@@ -83,7 +87,7 @@ const AppLayout = () => {
           alignItems={"center"}
           className={styles.Navbar}
         >
-          <Typography variant="p">Navbar</Typography>
+          <Typography variant="p">{pageTitle}</Typography>
           <Box display={"flex"} alignItems={"center"} gap={3}>
             <Box display={"flex"} gap={1.5}>
               <span>{currentTime}</span>

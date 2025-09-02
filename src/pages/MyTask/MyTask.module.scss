@@ -1,10 +1,50 @@
-.MyTaskPage {
-    width: 100%;
-    // background-color: cyan;
+.myTaskPage {
+  padding: 16px;
 
-    .actionContainer {
-        // background-color: red;
-        border-bottom: 1px solid black;
-        padding: 0rem 2rem;
-    }
+  .dueTag {
+    padding: 2px 6px;
+    border-radius: 12px;
+    font-weight: 500;
+    font-size: 12px;
+    display: inline-block;
+  }
+
+  .today {
+    color: #1976d2;
+    border: 1px solid #1976d2;
+    font-size: 12px;
+  }
+
+  .overdue {
+    color: #d32f2f;
+    border: 1px solid #f44336;
+    background: #fdecea;
+  }
+
+  .upcoming {
+    color: #555; // gray for future dates
+  }
+
+  .future {
+    background: #e0edff;
+    color: #2563eb;
+  }
+
+  .completedTitle {
+    text-decoration: line-through;
+    color: #666;
+  }
+
+  .scoreBadge {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #4caf50;
+    color: #fff;
+    font-size: 12px;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
