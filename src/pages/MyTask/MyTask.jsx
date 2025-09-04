@@ -16,6 +16,8 @@ import {
     ListItemText,
     Radio,
     TablePagination,
+    LinearProgress,
+    CircularProgress,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
@@ -32,16 +34,26 @@ import {
     toggleTaskFavourite,
     undoTask,
     markTaskCompleted,
+    updateTaskPercentage,
 } from "../../store/slices/taskSlice";
 import { defaultTaskPayload } from "../../utils/utils";
 import { differenceInCalendarDays, format, isToday, isYesterday } from "date-fns";
 import dayjs from "dayjs";
+import StatusModal from "./StatusModal";
+import FilterModal from "./FilterModal";
+import FilterPopover from "./FilterModal";
+import AddTaskModal from "./AddTaskModal";
 
 const MyTask = () => {
     const [tab, setTab] = useState(0);
     const [page, setPage] = useState(0);
     const [rowsPerPage, setRowsPerPage] = useState(10);
     const [search, setSearch] = useState("");
+    const [statusModal, setStatusModal] = useState({ open: false, task: null });
+    const [openAddTask, setOpenAddTask] = useState(false);
+
+    const [filterModalOpen, setFilterModalOpen] = useState(false);
+    const [filters, setFilters] = useState({});
 
     const dispatch = useDispatch();
     const { pendingTasks, completedTasks, totalCount } = useSelector((state) => state.task);
@@ -52,6 +64,7 @@ const MyTask = () => {
 
         const today = dayjs().startOf("day");
         const tomorrow = today.add(1, "day");
+        const yesterday = today.subtract(1, "day");
         const dueDate = dayjs(dateString);
 
         if (dueDate.isSame(today, "day")) {
@@ -60,12 +73,20 @@ const MyTask = () => {
         if (dueDate.isSame(tomorrow, "day")) {
             return { label: "Tomorrow", time: dueDate.format("h:mm A"), type: "tomorrow" };
         }
+        if (dueDate.isSame(yesterday, "day")) {
+            return { label: "Yesterday", time: dueDate.format("h:mm A"), type: "past" };
+        }
         if (dueDate.isBefore(today, "day")) {
             const diff = today.diff(dueDate, "day");
-            return { label: `${diff} day${diff > 1 ? "s" : ""} ago`, time: dueDate.format("h:mm A"), type: "past" };
+            return {
+                label: `${diff} days ago`,
+                time: dueDate.format("h:mm A"),
+                type: "past",
+            };
         }
         return { label: dueDate.format("DD MMM"), time: dueDate.format("h:mm A"), type: "future" };
     };
+
 
     const getDueDateStyle = (type) => {
         switch (type) {
@@ -108,16 +129,48 @@ const MyTask = () => {
     };
 
     const fetchTaskData = useCallback(
-        (pageNum = page, limit = rowsPerPage, searchText = search) => {
+        (
+            pageNum = page,
+            limit = rowsPerPage,
+            searchText = search,
+            filterValues = filters
+        ) => {
             const payload = {
-                ...defaultTaskPayload,
                 From: pageNum * limit + 1,
                 To: (pageNum + 1) * limit,
-                Search: searchText,
+                Search: searchText || "",
+                TaskType: filterValues.taskType || "",
+                DueDate: filterValues.dueDate || "",
+                DateType:
+                    filterValues.dateField === "Created Date"
+                        ? "CreatedDate"
+                        : filterValues.dateField === "Modified Date"
+                            ? "ModifiedDate"
+                            : "",
+                FromCreatedDate:
+                    filterValues.dateField === "Created Date" && filterValues.fromDate
+                        ? dayjs(filterValues.fromDate).format("MM/DD/YYYY")
+                        : "",
+                ToCreatedDate:
+                    filterValues.dateField === "Created Date" && filterValues.toDate
+                        ? dayjs(filterValues.toDate).format("MM/DD/YYYY")
+                        : "",
+                FromModifiedDate:
+                    filterValues.dateField === "Modified Date" && filterValues.fromDate
+                        ? dayjs(filterValues.fromDate).format("MM/DD/YYYY")
+                        : "",
+                ToModifiedDate:
+                    filterValues.dateField === "Modified Date" && filterValues.toDate
+                        ? dayjs(filterValues.toDate).format("MM/DD/YYYY")
+                        : "",
+                IsFavourite: false,
+                IsTarget: null,
+                UserId: "",
             };
+
             dispatch(fetchTasks(payload));
         },
-        [dispatch, page, rowsPerPage, search]
+        [dispatch, page, rowsPerPage, search, filters]
     );
 
     // ✅ Initial load & reload when pagination changes
@@ -131,15 +184,52 @@ const MyTask = () => {
         fetchTaskData(0, rowsPerPage, value);
     }, 500);
 
+    const handleStatusChange = async (task, newValue) => {
+        await dispatch(
+            updateTaskPercentage({
+                taskId: task.TaskId,
+                value: newValue,
+                isMyTask: true,
+            })
+        );
+
+        setStatusModal({ open: false, task: null });
+    };
+
+    const [anchorEl, setAnchorEl] = useState(null);
+
+    const handleOpen = (event) => {
+        setAnchorEl(event.currentTarget);
+    };
+
+    const handleClose = () => {
+        setAnchorEl(null);
+    };
+
+    const handleApply = (appliedFilters) => {
+        setFilters(appliedFilters); 
+        setPage(0); 
+        fetchTaskData(0, rowsPerPage, search, appliedFilters); 
+        handleClose(); 
+    };
+
+
     return (
         <Box className={styles.myTaskPage} sx={{ overflowX: "hidden" }}>
             {/* Filter + Search + Add Task */}
-            <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+            <Box display="flex" justifyContent="space-between" alignItems="center" paddingLeft={4}>
                 {/* Left side */}
-                <Button variant="contained" size="small">Filter</Button>
+                <Button
+                    variant="contained"
+                    size="small"
+                    onClick={handleOpen}
+                    sx={{ textTransform: "none", px: 3 }}
+                >
+                    Filter
+                </Button>
 
                 {/* Right side */}
-                <Box display="flex" alignItems="center" gap={2}>
+                <Box display="flex" alignItems="center" gap={2} paddingRight={4}>
                     <TextField
                         placeholder="Search"
                         variant="standard"
@@ -149,15 +239,7 @@ const MyTask = () => {
                             handleSearchChange(e.target.value);
                         }}
                     />
-                    <Button
-                        variant="contained"
-                        color="primary"
-                        size="small"
-                        onClick={() => {
-                            const newTask = { title: "New Task", description: "demo" };
-                            dispatch(addTask(newTask));
-                        }}
-                    >
+                    <Button onClick={() => setOpenAddTask(true)} variant="contained" color="primary" size="small" sx={{ textTransform: "none" }}>
                         Add Task
                     </Button>
                 </Box>
@@ -165,9 +247,9 @@ const MyTask = () => {
 
             {/* Tabs */}
             <Tabs value={tab} onChange={handleTabChange}>
-                <Tab label="My Task" />
-                <Tab label="Assigned By Me" />
-                <Tab label="Starred" />
+                <Tab sx={{ textTransform: "none" }} label="My Task" />
+                <Tab sx={{ textTransform: "none" }} label="Assigned By Me" />
+                <Tab sx={{ textTransform: "none" }} label="Starred" />
             </Tabs>
 
             {/* ✅ Show accordions only when tab === 0 */}
@@ -230,6 +312,34 @@ const MyTask = () => {
                                                 </>
                                             }
                                         />
+                                        {/* ✅ Progress bar with % */}
+                                        <Box sx={{ position: "relative", display: "inline-flex", width: 40, height: 40, mr: 2 }} onClick={() => setStatusModal({ open: true, task })}>
+                                            <CircularProgress
+                                                variant="determinate"
+                                                value={task.CompletionPercentage || 0}
+                                                size={40}
+                                                thickness={5}
+                                                sx={{
+                                                    color: task.CompletionPercentage === 100 ? "#2e7d32" : "#1976d2",
+                                                }}
+                                            />
+                                            <Box
+                                                sx={{
+                                                    top: 0,
+                                                    left: 0,
+                                                    bottom: 0,
+                                                    right: 0,
+                                                    position: "absolute",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                }}
+                                            >
+                                                <Typography variant="caption" component="div" color="textSecondary">
+                                                    {task.CompletionPercentage ? `${task.CompletionPercentage}` : "0"}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
                                         <IconButton
                                             onClick={() =>
                                                 dispatch(
@@ -319,6 +429,34 @@ const MyTask = () => {
                                                 </>
                                             }
                                         />
+                                        {/* ✅ Progress bar with % */}
+                                        <Box sx={{ position: "relative", display: "inline-flex", width: 40, height: 40, mr: 2 }} onClick={() => setStatusModal({ open: true, task })}>
+                                            <CircularProgress
+                                                variant="determinate"
+                                                value={task.CompletionPercentage || 0}
+                                                size={40}
+                                                thickness={5}
+                                                sx={{
+                                                    color: task.CompletionPercentage === 100 ? "#2e7d32" : "#1976d2",
+                                                }}
+                                            />
+                                            <Box
+                                                sx={{
+                                                    top: 0,
+                                                    left: 0,
+                                                    bottom: 0,
+                                                    right: 0,
+                                                    position: "absolute",
+                                                    display: "flex",
+                                                    alignItems: "center",
+                                                    justifyContent: "center",
+                                                }}
+                                            >
+                                                <Typography variant="caption" component="div" color="textSecondary">
+                                                    {task.CompletionPercentage ? `${task.CompletionPercentage}` : "0"}
+                                                </Typography>
+                                            </Box>
+                                        </Box>
                                         <IconButton>
                                             <MoreVertIcon />
                                         </IconButton>
@@ -334,7 +472,7 @@ const MyTask = () => {
             {tab === 0 && (
                 <TablePagination
                     component="div"
-                    count={totalCount || 0} // API should return total count
+                    count={totalCount || 0}
                     page={page}
                     onPageChange={(e, newPage) => setPage(newPage)}
                     rowsPerPage={rowsPerPage}
@@ -345,6 +483,29 @@ const MyTask = () => {
                     rowsPerPageOptions={[5, 10, 20]}
                 />
             )}
+
+            <StatusModal
+                open={statusModal.open}
+                onClose={() => setStatusModal({ open: false, task: null })}
+                task={statusModal.task}
+                onStatusChange={handleStatusChange}
+            />
+            <FilterPopover
+                anchorEl={anchorEl}
+                open={Boolean(anchorEl)}
+                onClose={handleClose}
+                onApply={handleApply}
+            />
+
+            <AddTaskModal
+                open={openAddTask}
+                onClose={() => setOpenAddTask(false)}
+                currentUserId={1248} 
+                onSuccess={(newTask) => {
+                    console.log("Task created:", newTask);
+                    fetchTaskData(page, rowsPerPage, search, filters);
+                }}
+            />
         </Box>
     );
 };

@@ -117,6 +117,35 @@ export const updateTaskStatus = createAsyncThunk(
   }
 );
 
+export const updateTaskPercentage = createAsyncThunk(
+  "task/updateTaskPercentage",
+  async ({ taskId, value, isMyTask }, { dispatch, rejectWithValue }) => {
+    try {
+      const res = await privateAPI.put(
+        `${UPDATE_TASK_FIELD}?taskId=${taskId}`,
+        {
+          FieldName: "TaskStatus",
+          Value: value,
+          IsMyTask: isMyTask,
+        }
+      );
+
+      if (res?.data?.Status !== 200) {
+        throw new Error(res?.data?.Message || "Failed to update percentage");
+      }
+
+      toast.success("Task progress updated successfully");
+
+      // refresh list
+      dispatch(fetchTasks(defaultTaskPayload));
+
+      return { taskId, value };
+    } catch (err) {
+      return rejectWithValue(err.response?.data || err.message);
+    }
+  }
+);
+
 export const markTaskCompleted = createAsyncThunk(
   "task/markTaskCompleted",
   async ({ taskId, isMyTask }, { dispatch, rejectWithValue }) => {

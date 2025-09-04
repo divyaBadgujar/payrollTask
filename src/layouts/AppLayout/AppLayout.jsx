@@ -96,12 +96,12 @@ const AppLayout = () => {
             </Box>
 
             {punchedIn ? (
-              <Button onClick={punchInPunchOut} variant="outlined">Punch out</Button>
+              <Button onClick={punchInPunchOut} variant="outlined" size="small" sx={{ textTransform: "none" }}>Punch out</Button>
             ) : (
-              <Button onClick={punchInPunchOut} variant="contained">Punch In</Button>
+              <Button onClick={punchInPunchOut} variant="contained" size="small" sx={{ textTransform: "none" }}>Punch In</Button>
             )}
 
-            <Button onClick={handleLogout} variant="contained" color="error">
+            <Button onClick={handleLogout} variant="contained" color="error" size="small" sx={{ textTransform: "none" }}>
               Logout
             </Button>
           </Box>
