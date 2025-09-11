@@ -1,0 +1,354 @@
+import React, { useState } from "react";
+import {
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  Button,
+  IconButton,
+  Box,
+  Typography,
+  FormControl,
+  Select,
+  MenuItem,
+} from "@mui/material";
+import CloseIcon from "@mui/icons-material/Close";
+import TodayIcon from "@mui/icons-material/Today";
+import { useDispatch, useSelector } from "react-redux";
+import { AppDispatch, RootState } from "../../store/store";
+import { addTask } from "../../store/slices/taskSlice";
+import dayjs, { Dayjs } from "dayjs";
+
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { MobileDatePicker } from "@mui/x-date-pickers/MobileDatePicker";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
+import AttachFileIcon from "@mui/icons-material/AttachFile";
+import SettingsIcon from "@mui/icons-material/Settings";
+import PeopleIcon from "@mui/icons-material/People";
+import ModeStandbyIcon from "@mui/icons-material/ModeStandby";
+import RoundIconButton from "./RoundIconButton";
+import AssignMemberModal from "./AssignMemberModal";
+
+interface AddTaskModalProps {
+  open: boolean;
+  onClose: () => void;
+  currentUserId: number;
+  onSuccess?: () => void;
+}
+
+const AddTaskModal: React.FC<AddTaskModalProps> = ({
+  open,
+  onClose,
+  currentUserId,
+  onSuccess,
+}) => {
+  const dispatch = useDispatch<AppDispatch>();
+  const { loading } = useSelector((state: RootState) => state.task);
+
+  // ---------- State ----------
+  const [title, setTitle] = useState<string>("");
+  const [description, setDescription] = useState<string>("");
+  const [dateChoice, setDateChoice] = useState<"today" | "tomorrow" | "custom">(
+    "today"
+  );
+  const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
+  const [selectedTime, setSelectedTime] = useState<string>("5:30 PM");
+  const [selectedDateTime, setSelectedDateTime] = useState<Dayjs>(dayjs());
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+  const [titleError, setTitleError] = useState<boolean>(false);
+
+  const [openMemberModal, setOpenMemberModal] = useState(false);
+  const [selectedCustomer, setSelectedCustomer] = useState<{
+    id: string | number;
+    label: string;
+  } | null>(null);
+
+  // ---------- Time Slots ----------
+  const timeSlots: string[] = [];
+  for (let hour = 0; hour < 24; hour++) {
+    const period = hour >= 12 ? "PM" : "AM";
+    const displayHour = hour % 12 || 12;
+    timeSlots.push(`${displayHour}:00 ${period}`);
+    timeSlots.push(`${displayHour}:30 ${period}`);
+  }
+
+  // ---------- Handlers ----------
+  const handleSave = () => {
+    if (!title.trim()) {
+      setTitleError(true);
+      return;
+    }
+    setTitleError(false);
+
+    let startDate: Dayjs, endDate: Dayjs;
+
+    if (dateChoice === "today") {
+      startDate = dayjs();
+      endDate = dayjs().endOf("day");
+    } else if (dateChoice === "tomorrow") {
+      startDate = dayjs().add(1, "day").startOf("day");
+      endDate = dayjs().add(1, "day").endOf("day");
+    } else {
+      const [time, period] = selectedTime.split(" ");
+      let [hours, minutes] = time.split(":").map(Number);
+      if (period === "PM" && hours !== 12) hours += 12;
+      if (period === "AM" && hours === 12) hours = 0;
+
+      startDate = selectedDate.hour(hours).minute(minutes).second(0);
+      endDate = startDate.add(1, "hour");
+    }
+
+    const payload = {
+      Title: title,
+      Description: description,
+      IntercomGroupIds: [] as number[],
+      AssignedByUserId: currentUserId,
+      AssignedToUserId: 0, // required
+      AssignedDate: startDate.format("MM-DD-YYYY"),
+      CompletedDate: "",
+      TaskStartDate: startDate.format("MM-DD-YYYY hh:mm:ss A"),
+      TaskEndDate: endDate.format("MM-DD-YYYY hh:mm:ss A"),
+      Priority: "Low",
+      LeadId: selectedCustomer ? Number(selectedCustomer.id) : 0,
+      Location: "NA",
+      Longitude: 0,
+      Latitude: 0,
+      CompletionPercentage: 0,
+      TaskStatus: "",
+      TaskType: "",
+      IsActive: true,
+      IsFavourite: false,
+      Target: 0,
+      TaskOwners: [] as any[],
+      TaskOwnerIds: [] as number[], // add empty array to match backend
+      UserIds: [
+        {
+          UserId: currentUserId,
+          Target: 0,
+          TargetAchieved: 0,
+          IsActive: true,
+        },
+      ],
+    };
+
+    dispatch(addTask(payload) as any).then((res: any) => {
+      if (res.meta.requestStatus === "fulfilled") {
+        handleClose();
+        if (onSuccess) onSuccess();
+      }
+    });
+  };
+
+  const handleClose = () => {
+    setTitle("");
+    setDescription("");
+    setDateChoice("today");
+    setSelectedDateTime(dayjs());
+    setSelectedCustomer(null);
+    onClose();
+  };
+
+  return (
+    <>
+      <Dialog
+        open={open}
+        onClose={handleClose}
+        PaperProps={{
+          sx: { borderRadius: 3, p: 1, width: 500, maxWidth: "90vw" },
+        }}
+      >
+        <DialogTitle
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+          }}
+        >
+          <Typography variant="h6" fontWeight={500}>
+            New Task
+          </Typography>
+          <IconButton onClick={handleClose} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+
+        <DialogContent dividers sx={{ px: 3, py: 2 }}>
+          <TextField
+            label="Title"
+            fullWidth
+            required
+            variant="outlined"
+            value={title}
+            onChange={(e) => {
+              setTitle(e.target.value);
+              if (titleError && e.target.value.trim()) {
+                setTitleError(false);
+              }
+            }}
+            onBlur={() => {
+              if (!title.trim()) setTitleError(true);
+            }}
+            error={titleError}
+            helperText={
+              titleError ? "Title is required" : `${title.length}/200`
+            }
+            inputProps={{ maxLength: 200 }}
+            sx={{ mb: 2 }}
+          />
+
+          <TextField
+            label="Description"
+            fullWidth
+            multiline
+            minRows={3}
+            variant="outlined"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            inputProps={{ maxLength: 500 }}
+            helperText={`${description.length}/500`}
+            sx={{ mb: 2 }}
+          />
+
+          <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+            <Button
+              variant={dateChoice === "today" ? "contained" : "outlined"}
+              size="small"
+              onClick={() => {
+                setDateChoice("today");
+                setSelectedDate(dayjs());
+                setSelectedTime("5:30 PM");
+              }}
+              sx={{
+                borderRadius: "20px",
+                textTransform: "none",
+                height: "40px",
+              }}
+            >
+              Today
+            </Button>
+            <Button
+              variant={dateChoice === "tomorrow" ? "contained" : "outlined"}
+              size="small"
+              onClick={() => {
+                setDateChoice("tomorrow");
+                setSelectedDate(dayjs().add(1, "day"));
+                setSelectedTime("2:50 AM");
+              }}
+              sx={{
+                borderRadius: "20px",
+                textTransform: "none",
+                height: "40px",
+              }}
+            >
+              Tomorrow
+            </Button>
+            <Box sx={{ display: "flex", gap: 1, mb: 2 }}>
+              <RoundIconButton
+                icon={<TodayIcon />}
+                title="Select Date And Time"
+                onClick={() => setShowDatePicker(true)}
+              />
+              <RoundIconButton
+                icon={<PersonAddIcon />}
+                title="Assign User"
+                onClick={() => setOpenMemberModal(true)}
+              />
+              <RoundIconButton icon={<PeopleIcon />} title="Add Team" />
+              <RoundIconButton icon={<AttachFileIcon />} title="Attach File" />
+              <RoundIconButton
+                icon={<ModeStandbyIcon />}
+                title="Standby Mode"
+              />
+            </Box>
+          </Box>
+
+          {dateChoice && (
+            <Typography variant="body2" color="text.secondary">
+              Selected: {selectedDate.format("ddd, MMM D")} at {selectedTime}
+            </Typography>
+          )}
+        </DialogContent>
+
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={handleClose} sx={{ textTransform: "none" }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSave}
+            disabled={!title.trim() || loading}
+            sx={{ textTransform: "none" }}
+          >
+            {loading ? "Saving..." : "Save"}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Date + Time Dropdown Modal */}
+      <LocalizationProvider dateAdapter={AdapterDayjs}>
+        <Dialog
+          open={showDatePicker}
+          onClose={() => setShowDatePicker(false)}
+          maxWidth="xs"
+          fullWidth
+        >
+          <DialogTitle>Select Date & Time</DialogTitle>
+          <DialogContent>
+            {/* Date Picker */}
+            <MobileDatePicker
+              value={selectedDate}
+              onChange={(newValue) => {
+                if (newValue) {
+                  setSelectedDate(newValue);
+                  setDateChoice("custom");
+                }
+              }}
+              slotProps={{
+                textField: { fullWidth: true, size: "small", sx: { mb: 2 } },
+              }}
+            />
+
+            {/* Time Dropdown */}
+            <FormControl fullWidth size="small">
+              <Select
+                value={selectedTime}
+                onChange={(e) => {
+                  setSelectedTime(e.target.value);
+                  setDateChoice("custom");
+                }}
+              >
+                {timeSlots.map((time, index) => (
+                  <MenuItem key={index} value={time}>
+                    {time}
+                  </MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowDatePicker(false)}>Cancel</Button>
+            <Button
+              variant="contained"
+              onClick={() => setShowDatePicker(false)}
+            >
+              Select
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </LocalizationProvider>
+
+      <AssignMemberModal
+        open={openMemberModal}
+        onClose={() => setOpenMemberModal(false)}
+        onSelect={(lead) => {
+          setSelectedCustomer(lead);
+          setOpenMemberModal(false);
+        }}
+      />
+    </>
+  );
+};
+
+export default AddTaskModal;
