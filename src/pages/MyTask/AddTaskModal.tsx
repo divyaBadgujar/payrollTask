@@ -12,6 +12,7 @@ import {
   FormControl,
   Select,
   MenuItem,
+  Chip,
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import TodayIcon from "@mui/icons-material/Today";
@@ -59,6 +60,8 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
   const [selectedDateTime, setSelectedDateTime] = useState<Dayjs>(dayjs());
   const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
   const [titleError, setTitleError] = useState<boolean>(false);
+
+  const [attachments, setAttachments] = useState<File[]>([]);
 
   const [openMemberModal, setOpenMemberModal] = useState(false);
   const [member, setMember] = useState(false);
@@ -138,12 +141,25 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
       ],
     };
 
-    dispatch(addTask(payload) as any).then((res: any) => {
+    const formData = new FormData();
+    formData.append("data", JSON.stringify(payload));
+    attachments.forEach((file) => formData.append("files", file));
+
+    dispatch(addTask(formData) as any).then((res: any) => {
       if (res.meta.requestStatus === "fulfilled") {
         handleClose();
         if (onSuccess) onSuccess();
       }
     });
+  };
+
+  // Ref for file input
+  const fileInputRef = React.useRef<HTMLInputElement | null>(null);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return; // exit if no files selected
+    setAttachments((prev) => [...prev, ...Array.from(files)]);
   };
 
   const handleClose = () => {
@@ -265,7 +281,58 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
                 title="Select Member"
                 onClick={() => setMember(true)}
               />
-              <RoundIconButton icon={<AttachFileIcon />} title="Attach File" />
+              <RoundIconButton
+                icon={<AttachFileIcon />}
+                title="Attach File"
+                onClick={() => fileInputRef.current?.click()}
+              />
+              <input
+                type="file"
+                multiple
+                hidden
+                ref={fileInputRef}
+                onChange={handleFileChange}
+              />
+              {attachments.length > 0 && (
+                <Box
+                  sx={{
+                    display: "flex",
+                    flexWrap: "wrap", // allow wrapping
+                    gap: 1, // space between items
+                    mt: 2,
+                  }}
+                >
+                  {attachments.map((file, index) => (
+                    <Box
+                      sx={{
+                        display: "flex",
+                        flexWrap: "wrap",
+                        gap: 1,
+                        mt: 2,
+                      }}
+                    >
+                      {attachments.map((file, index) => (
+                        <Chip
+                          key={index}
+                          label={file.name}
+                          onDelete={() =>
+                            setAttachments((prev) =>
+                              prev.filter((_, i) => i !== index)
+                            )
+                          }
+                          sx={{
+                            maxWidth: "200px",
+                            "& .MuiChip-label": {
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            },
+                          }}
+                        />
+                      ))}
+                    </Box>
+                  ))}
+                </Box>
+              )}
               <RoundIconButton icon={<ModeStandbyIcon />} title="Target" />
             </Box>
           </Box>

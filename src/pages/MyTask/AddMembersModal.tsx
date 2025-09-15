@@ -17,7 +17,7 @@ import {
 } from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 import { useDispatch, useSelector } from "react-redux";
-import { AppDispatch, RootState } from "../../store/store"; // adjust path
+import { AppDispatch, RootState } from "../../store/store"; 
 import { getCCMembers } from "../../store/slices/memberSlice";
 
 interface Member {
@@ -28,7 +28,7 @@ interface Member {
 interface AddMembersModalProps {
   open: boolean;
   onClose: () => void;
-  onSelect: (members: Member[]) => void;
+  onSelect: (members: { users: Member[]; cc: Member[] }) => void;
 }
 
 const AddMembersModal: React.FC<AddMembersModalProps> = ({
@@ -41,34 +41,58 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
     (state: RootState) => state.member
   );
 
-  const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [activeTab, setActiveTab] = useState<"users" | "cc">("users");
 
-  useEffect(() => {
+  // separate local states
+  const [usersList, setUsersList] = useState<Member[]>([]);
+  const [ccList, setCcList] = useState<Member[]>([]);
+  const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
+  const [selectedCc, setSelectedCc] = useState<number[]>([]);
+   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
+  const [selectedCcIds, setSelectedCcIds] = useState<number[]>([]);
+
+   useEffect(() => {
     if (open) {
-      // 🔹 Dispatch API when modal opens or tab changes
+      // fetch based on activeTab
       dispatch(getCCMembers({ from: 1, text: "" }));
     }
   }, [open, activeTab, dispatch]);
 
   const toggleSelect = (id: number) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    if (activeTab === "users") {
+      setSelectedUserIds((prev) =>
+        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      );
+    } else {
+      setSelectedCcIds((prev) =>
+        prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+      );
+    }
   };
 
   const handleDone = () => {
-    const selected = members.filter((m) =>
-      selectedIds.includes(Number(m.Id || m.UserId))
-    );
-    onSelect(
-      selected.map((m) => ({
-        UserId: Number(m.Id || m.UserId),
-        Name: m.Name,
-      }))
-    );
-    onClose();
-  };
+  const selectedUsers = members
+    .filter((m) => selectedUserIds.includes(Number(m.Id || m.UserId)))
+    .map((m) => ({
+      UserId: Number(m.Id || m.UserId),
+      Name: m.Name,
+    }));
+
+  const selectedCC = members
+    .filter((m) => selectedCcIds.includes(Number(m.Id || m.UserId)))
+    .map((m) => ({
+      UserId: Number(m.Id || m.UserId),
+      Name: m.Name,
+    }));
+
+  onSelect({
+    users: selectedUsers,
+    cc: selectedCC,
+  });
+
+  onClose();
+};
+
 
   return (
     <Dialog
@@ -78,7 +102,7 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
         "& .MuiDialog-container": {
           "& .MuiPaper-root": {
             width: "100%",
-            maxWidth: "420px", // Set your desired max-width
+            maxWidth: "420px",
           },
         },
       }}
@@ -90,7 +114,7 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
         </IconButton>
       </DialogTitle>
 
-      {/* 🔹 Tabs for Users / CC */}
+      {/* Tabs with counts */}
       <Tabs
         value={activeTab}
         onChange={(_, val) => setActiveTab(val)}
@@ -98,8 +122,14 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
         textColor="primary"
         centered
       >
-        <Tab value="users" label="Users" />
-        <Tab value="cc" label="CC" />
+        <Tab
+          value="users"
+          label={`Users (${selectedUserIds.length})`}
+        />
+        <Tab
+          value="cc"
+          label={`CC (${selectedCcIds.length})`}
+        />
       </Tabs>
 
       <DialogContent dividers>
@@ -109,10 +139,15 @@ const AddMembersModal: React.FC<AddMembersModalProps> = ({
           <List>
             {members.map((member) => {
               const id = Number(member.Id || member.UserId);
+              const isSelected =
+                activeTab === "users"
+                  ? selectedUserIds.includes(id)
+                  : selectedCcIds.includes(id);
+
               return (
                 <ListItem key={id} button onClick={() => toggleSelect(id)}>
                   <ListItemIcon>
-                    <Checkbox checked={selectedIds.includes(id)} />
+                    <Checkbox checked={isSelected} />
                   </ListItemIcon>
                   <ListItemText primary={member.Name} />
                 </ListItem>
