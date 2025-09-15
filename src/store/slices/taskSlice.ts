@@ -13,12 +13,12 @@ import toast from "../../utils/toast";
 
 // ---------------- Types ----------------
 export interface Task {
- TaskId: number;
-  Title: string;               
+  TaskId: number;
+  Title: string;
   Description?: string;
   IsFavourite: boolean;
-  TaskStatus: string;      
-  CompletionPercentage: number;  
+  TaskStatus: string;
+  CompletionPercentage: number;
   AssignedToUsers?: {
     Id: number;
     EmployeeNo: string;
@@ -69,24 +69,30 @@ const initialState: TaskState = {
 export const toggleTaskFavourite = createAsyncThunk<
   { taskId: number; value: boolean },
   { taskId: number; currentValue: boolean; isMyTask: boolean }
->("task/toggleTaskFavourite", async ({ taskId, currentValue, isMyTask }, { rejectWithValue }) => {
-  try {
-    const response = await privateAPI.put(`${UPDATE_TASK_FIELD}?taskId=${taskId}`, {
-      FieldName: "IsFavourite",
-      Value: !currentValue,
-      IsMyTask: isMyTask,
-    });
+>(
+  "task/toggleTaskFavourite",
+  async ({ taskId, currentValue, isMyTask }, { rejectWithValue }) => {
+    try {
+      const response = await privateAPI.put(
+        `${UPDATE_TASK_FIELD}?taskId=${taskId}`,
+        {
+          FieldName: "IsFavourite",
+          Value: !currentValue,
+          IsMyTask: isMyTask,
+        }
+      );
 
-    if (response.data?.Status !== 200) {
-      throw new Error(response.data?.Message || "Failed to update favourite");
+      if (response.data?.Status !== 200) {
+        throw new Error(response.data?.Message || "Failed to update favourite");
+      }
+
+      return { taskId, value: !currentValue };
+    } catch (error: any) {
+      console.log(error);
+      return rejectWithValue(error.response?.data || error.message);
     }
-
-    return { taskId, value: !currentValue };
-  } catch (error: any) {
-    console.log(error);
-    return rejectWithValue(error.response?.data || error.message);
   }
-});
+);
 
 export const fetchTasks = createAsyncThunk<
   { pendingTasks: Task[]; completedTasks: Task[]; totalCount: number },
@@ -158,55 +164,72 @@ export const updateTaskStatus = createAsyncThunk<void, any>(
 export const updateTaskPercentage = createAsyncThunk<
   { taskId: number; value: number },
   { taskId: number; value: number; isMyTask: boolean }
->("task/updateTaskPercentage", async ({ taskId, value, isMyTask }, { dispatch, rejectWithValue }) => {
-  try {
-    const res = await privateAPI.put(`${UPDATE_TASK_FIELD}?taskId=${taskId}`, {
-      FieldName: "TaskStatus",
-      Value: value,
-      IsMyTask: isMyTask,
-    });
+>(
+  "task/updateTaskPercentage",
+  async ({ taskId, value, isMyTask }, { dispatch, rejectWithValue }) => {
+    try {
+      const res = await privateAPI.put(
+        `${UPDATE_TASK_FIELD}?taskId=${taskId}`,
+        {
+          FieldName: "TaskStatus",
+          Value: value,
+          IsMyTask: isMyTask,
+        }
+      );
 
-    if (res?.data?.Status !== 200) {
-      throw new Error(res?.data?.Message || "Failed to update percentage");
+      if (res?.data?.Status !== 200) {
+        throw new Error(res?.data?.Message || "Failed to update percentage");
+      }
+
+      toast.success("Task progress updated successfully");
+      dispatch(fetchTasks(defaultTaskPayload));
+
+      return { taskId, value };
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data || err.message);
     }
-
-    toast.success("Task progress updated successfully");
-    dispatch(fetchTasks(defaultTaskPayload));
-
-    return { taskId, value };
-  } catch (err: any) {
-    return rejectWithValue(err.response?.data || err.message);
   }
-});
+);
 
 export const markTaskCompleted = createAsyncThunk<
   { taskId: number },
   { taskId: number; isMyTask: boolean }
->("task/markTaskCompleted", async ({ taskId, isMyTask }, { dispatch, rejectWithValue }) => {
-  try {
-    const res = await privateAPI.put(`${UPDATE_TASK_FIELD}?taskId=${taskId}`, {
-      FieldName: "TaskStatus",
-      Value: 100,
-      IsMyTask: isMyTask,
-    });
+>(
+  "task/markTaskCompleted",
+  async ({ taskId, isMyTask }, { dispatch, rejectWithValue }) => {
+    try {
+      const res = await privateAPI.put(
+        `${UPDATE_TASK_FIELD}?taskId=${taskId}`,
+        {
+          FieldName: "TaskStatus",
+          Value: 100,
+          IsMyTask: isMyTask,
+        }
+      );
 
-    if (res?.data?.Status !== 200) {
-      throw new Error(res?.data?.Message || "Failed to mark completed");
+      if (res?.data?.Status !== 200) {
+        throw new Error(res?.data?.Message || "Failed to mark completed");
+      }
+
+      toast.success("Task moved to Completed");
+      dispatch(fetchTasks(defaultTaskPayload));
+      return { taskId };
+    } catch (err: any) {
+      return rejectWithValue(err.response?.data || err.message);
     }
-
-    toast.success("Task moved to Completed");
-    dispatch(fetchTasks(defaultTaskPayload));
-    return { taskId };
-  } catch (err: any) {
-    return rejectWithValue(err.response?.data || err.message);
   }
-});
+);
 
-export const undoTask = createAsyncThunk<void, { taskId: number; isMyTask: boolean }>(
+export const undoTask = createAsyncThunk<
+  void,
+  { taskId: number; isMyTask: boolean }
+>(
   "task/undoTask",
   async ({ taskId, isMyTask }, { dispatch, rejectWithValue }) => {
     try {
-      await privateAPI.put(`${UNDO_TASK}?taskId=${taskId}&isMyTask=${isMyTask}`);
+      await privateAPI.put(
+        `${UNDO_TASK}?taskId=${taskId}&isMyTask=${isMyTask}`
+      );
       toast.success("Task moved back to Pending");
       dispatch(fetchTasks(defaultTaskPayload));
     } catch (error: any) {
@@ -233,7 +256,9 @@ const taskSlice = createSlice({
         const pendingTask = state.pendingTasks.find((t) => t.TaskId === taskId);
         if (pendingTask) pendingTask.IsFavourite = value;
 
-        const completedTask = state.completedTasks.find((t) => t.TaskId === taskId);
+        const completedTask = state.completedTasks.find(
+          (t) => t.TaskId === taskId
+        );
         if (completedTask) completedTask.IsFavourite = value;
       })
 

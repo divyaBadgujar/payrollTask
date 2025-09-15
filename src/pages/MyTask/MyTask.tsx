@@ -17,12 +17,16 @@ import {
   Radio,
   TablePagination,
   CircularProgress,
+  Menu,
+  MenuItem,
 } from "@mui/material";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import StarIcon from "@mui/icons-material/Star";
 import StarBorderIcon from "@mui/icons-material/StarBorder";
+import { Chip } from "@mui/material";
+
 
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -41,7 +45,19 @@ import dayjs from "dayjs";
 import { RootState } from "../../store/store";
 import { useAppDispatch } from "../../Hooks/hooks";
 
+import CommentIcon from "@mui/icons-material/Comment";
+import LinearScaleIcon from "@mui/icons-material/LinearScale";
+import ProgressReportModal from "./ProgreeReportModal";
+
 // ------------------ Types ------------------
+interface AssignedUser {
+  Id: number;
+  Name: string;
+  EmployeeNo: string;
+  Target: number;
+  TargetAchieved: number;
+}
+
 interface Task {
   TaskId: number;
   Title: string;
@@ -49,6 +65,14 @@ interface Task {
   TaskEndDate?: string;
   CompletionPercentage?: number;
   IsFavourite?: boolean;
+  AssignedByUserId?: number;
+  AssignedByUserName?: string;
+  AssignedToUsers?: AssignedUser[];
+  TaskStatus?: string;
+  Priority?: string;
+  TaskCommentCount?: number;
+  TaskStartDate?: string;
+  CreateDate?: string;
 }
 
 interface StatusModalState {
@@ -88,6 +112,23 @@ const MyTask: React.FC = () => {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [filters, setFilters] = useState<Filters>({});
 
+  // menu state
+  const [menuAnchorEl, setMenuAnchorEl] = useState<null | HTMLElement>(null);
+  const [menuTask, setMenuTask] = useState<Task | null>(null);
+
+  const [openProgressReport, setOpenProgressReport] = useState(false);
+
+  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, task: Task) => {
+    setMenuAnchorEl(event.currentTarget);
+    setMenuTask(task);
+  };
+
+  const handleMenuClose = (resetTask: boolean = true) => {
+    setMenuAnchorEl(null);
+    if (resetTask) {
+      setMenuTask(null);
+    }
+  };
   // ------------------ Date Utilities ------------------
   const formatDueDate = (dateString?: string) => {
     if (!dateString) return { label: "", time: "", type: "default" };
@@ -97,29 +138,72 @@ const MyTask: React.FC = () => {
     const yesterday = today.subtract(1, "day");
     const dueDate = dayjs(dateString);
 
-    if (dueDate.isSame(today, "day")) return { label: "Today", time: dueDate.format("h:mm A"), type: "today" };
-    if (dueDate.isSame(tomorrow, "day")) return { label: "Tomorrow", time: dueDate.format("h:mm A"), type: "tomorrow" };
-    if (dueDate.isSame(yesterday, "day")) return { label: "Yesterday", time: dueDate.format("h:mm A"), type: "past" };
+    if (dueDate.isSame(today, "day"))
+      return { label: "Today", time: dueDate.format("h:mm A"), type: "today" };
+    if (dueDate.isSame(tomorrow, "day"))
+      return {
+        label: "Tomorrow",
+        time: dueDate.format("h:mm A"),
+        type: "tomorrow",
+      };
+    if (dueDate.isSame(yesterday, "day"))
+      return {
+        label: "Yesterday",
+        time: dueDate.format("h:mm A"),
+        type: "past",
+      };
     if (dueDate.isBefore(today, "day")) {
       const diff = today.diff(dueDate, "day");
-      return { label: `${diff} day${diff > 1 ? "s" : ""} ago`, time: dueDate.format("h:mm A"), type: "past" };
+      return {
+        label: `${diff} day${diff > 1 ? "s" : ""} ago`,
+        time: dueDate.format("h:mm A"),
+        type: "past",
+      };
     }
-    return { label: dueDate.format("DD MMM"), time: dueDate.format("h:mm A"), type: "future" };
+    return {
+      label: dueDate.format("DD MMM"),
+      time: dueDate.format("h:mm A"),
+      type: "future",
+    };
   };
 
   const getDueDateStyle = (type: string) => {
     switch (type) {
-      case "today": return { border: "1px solid #1976d2", color: "#1976d2", backgroundColor: "#fff" };
-      case "tomorrow": return { backgroundColor: "#1976d2", color: "#fff", border: "1px solid #1976d2" };
-      case "past": return { border: "1px solid #d32f2f", color: "#d32f2f", backgroundColor: "#fff" };
-      default: return { border: "1px solid #9e9e9e", color: "#424242", backgroundColor: "#fff" };
+      case "today":
+        return {
+          border: "1px solid #1976d2",
+          color: "#1976d2",
+          backgroundColor: "#fff",
+        };
+      case "tomorrow":
+        return {
+          backgroundColor: "#1976d2",
+          color: "#fff",
+          border: "1px solid #1976d2",
+        };
+      case "past":
+        return {
+          border: "1px solid #d32f2f",
+          color: "#d32f2f",
+          backgroundColor: "#fff",
+        };
+      default:
+        return {
+          border: "1px solid #9e9e9e",
+          color: "#424242",
+          backgroundColor: "#fff",
+        };
     }
   };
 
   // ------------------ Handlers ------------------
-  const handleTabChange = (_: React.SyntheticEvent, newValue: number) => setTab(newValue);
+  const handleTabChange = (_: React.SyntheticEvent, newValue: number) =>
+    setTab(newValue);
 
-  const debounce = <T extends (...args: any[]) => void>(func: T, delay: number) => {
+  const debounce = <T extends (...args: any[]) => void>(
+    func: T,
+    delay: number
+  ) => {
     let timer: ReturnType<typeof setTimeout>;
     return (...args: Parameters<T>) => {
       clearTimeout(timer);
@@ -128,7 +212,12 @@ const MyTask: React.FC = () => {
   };
 
   const fetchTaskData = useCallback(
-    (pageNum = page, limit = rowsPerPage, searchText = search, filterValues = filters) => {
+    (
+      pageNum = page,
+      limit = rowsPerPage,
+      searchText = search,
+      filterValues = filters
+    ) => {
       const payload = {
         From: pageNum * limit + 1,
         To: (pageNum + 1) * limit,
@@ -177,12 +266,17 @@ const MyTask: React.FC = () => {
 
   const handleStatusChange = async (task: Task, newValue: number) => {
     await dispatch(
-      updateTaskPercentage({ taskId: task.TaskId, value: newValue, isMyTask: true })
+      updateTaskPercentage({
+        taskId: task.TaskId,
+        value: newValue,
+        isMyTask: true,
+      })
     );
     setStatusModal({ open: false, task: null });
   };
 
-  const handleOpen = (event: React.MouseEvent<HTMLElement>) => setAnchorEl(event.currentTarget);
+  const handleOpen = (event: React.MouseEvent<HTMLElement>) =>
+    setAnchorEl(event.currentTarget);
   const handleClose = () => setAnchorEl(null);
 
   const handleApply = (appliedFilters: Filters) => {
@@ -192,12 +286,66 @@ const MyTask: React.FC = () => {
     handleClose();
   };
 
+  const renderActiveFilters = () => {
+  const chips: { key: keyof Filters; label: string }[] = [];
+
+  if (filters.taskType) chips.push({ key: "taskType", label: `By Task Type: ${filters.taskType}` });
+  if (filters.dueDate) chips.push({ key: "dueDate", label: `By Due Date: ${filters.dueDate}` });
+  if (filters.dateField && (filters.fromDate || filters.toDate)) {
+    chips.push({
+      key: "dateField",
+      label: `By ${filters.dateField}: ${filters.fromDate || "?"} → ${filters.toDate || "?"}`,
+    });
+  }
+
+  return (
+    <Box display="flex" flexWrap="wrap" gap={1} mt={1} px={4}>
+      {chips.map((chip) => (
+        <Chip
+          key={chip.key}
+          label={chip.label}
+          onDelete={() => {
+            // remove only that filter
+            const newFilters = { ...filters, [chip.key]: "" };
+            setFilters(newFilters);
+            fetchTaskData(0, rowsPerPage, search, newFilters);
+          }}
+          sx={{ fontSize: "12px" }}
+        />
+      ))}
+
+      {chips.length > 0 && (
+        <Chip
+          label="Clear Filter"
+          color="error"
+          onClick={() => {
+            setFilters({});
+            fetchTaskData(0, rowsPerPage, search, {});
+          }}
+          sx={{ fontSize: "12px" }}
+        />
+      )}
+    </Box>
+  );
+};
+
   // ------------------ Render ------------------
   return (
     <Box className={styles.myTaskPage} sx={{ overflowX: "hidden" }}>
       {/* Filter + Search + Add Task */}
-      <Box display="flex" justifyContent="space-between" alignItems="center" paddingX={4}>
-        <Button variant="contained" size="small" onClick={handleOpen} sx={{ textTransform: "none", px: 3 }}>
+      <Box
+        display="flex"
+        justifyContent="space-between"
+        alignItems="center"
+        paddingX={4}
+      >
+        <Button
+          variant="contained"
+          size="small"
+          onClick={handleOpen}
+          sx={{ textTransform: "none", px: 3 }}
+          title="Filter"
+        >
           Filter
         </Button>
         <Box display="flex" alignItems="center" gap={2}>
@@ -216,11 +364,14 @@ const MyTask: React.FC = () => {
             color="primary"
             size="small"
             sx={{ textTransform: "none" }}
+            title="Add Task"
           >
             Add Task
           </Button>
         </Box>
       </Box>
+
+      {renderActiveFilters()}
 
       {/* Tabs */}
       <Tabs value={tab} onChange={handleTabChange}>
@@ -235,7 +386,9 @@ const MyTask: React.FC = () => {
           {/* Pending Tasks Accordion */}
           <Accordion defaultExpanded>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography variant="subtitle1">Pending Tasks ({pendingTasks.length})</Typography>
+              <Typography variant="subtitle1">
+                Pending Tasks ({pendingTasks.length})
+              </Typography>
             </AccordionSummary>
             <AccordionDetails>
               <List>
@@ -245,12 +398,21 @@ const MyTask: React.FC = () => {
                       <Radio
                         checked={false}
                         onClick={() =>
-                          dispatch(markTaskCompleted({ taskId: task.TaskId, isMyTask: true }))
+                          dispatch(
+                            markTaskCompleted({
+                              taskId: task.TaskId,
+                              isMyTask: true,
+                            })
+                          )
                         }
                       />
                     </ListItemIcon>
                     <ListItemText
-                      primary={<Typography fontWeight={600} color="#646c9a">{task.Title}</Typography>}
+                      primary={
+                        <Typography fontWeight={600} color="#646c9a">
+                          {task.Title}
+                        </Typography>
+                      }
                       secondary={
                         <>
                           <Typography variant="body2" color="textSecondary">
@@ -258,7 +420,9 @@ const MyTask: React.FC = () => {
                           </Typography>
                           <br />
                           {(() => {
-                            const { label, time, type } = formatDueDate(task.TaskEndDate);
+                            const { label, time, type } = formatDueDate(
+                              task.TaskEndDate
+                            );
                             const style = getDueDateStyle(type);
                             return (
                               <span
@@ -279,7 +443,13 @@ const MyTask: React.FC = () => {
                       }
                     />
                     <Box
-                      sx={{ position: "relative", display: "inline-flex", width: 40, height: 40, mr: 2 }}
+                      sx={{
+                        position: "relative",
+                        display: "inline-flex",
+                        width: 40,
+                        height: 40,
+                        mr: 2,
+                      }}
                       onClick={() => setStatusModal({ open: true, task })}
                     >
                       <CircularProgress
@@ -287,7 +457,13 @@ const MyTask: React.FC = () => {
                         value={task.CompletionPercentage || 0}
                         size={40}
                         thickness={5}
-                        sx={{ color: task.CompletionPercentage === 100 ? "#2e7d32" : "#1976d2" }}
+                        sx={{
+                          color:
+                            task.CompletionPercentage === 100
+                              ? "#2e7d32"
+                              : "#1976d2",
+                        }}
+                        title="Task Progress"
                       />
                       <Box
                         sx={{
@@ -300,6 +476,7 @@ const MyTask: React.FC = () => {
                           right: 0,
                           bottom: 0,
                         }}
+                      
                       >
                         <Typography variant="caption" color="textSecondary">
                           {task.CompletionPercentage ?? 0}%
@@ -316,10 +493,15 @@ const MyTask: React.FC = () => {
                           })
                         )
                       }
+                      title="Star"
                     >
-                      {task.IsFavourite ? <StarIcon sx={{ color: "#646C9A" }} /> : <StarBorderIcon />}
+                      {task.IsFavourite ? (
+                        <StarIcon sx={{ color: "#646C9A" }} />
+                      ) : (
+                        <StarBorderIcon />
+                      )}
                     </IconButton>
-                    <IconButton>
+                    <IconButton onClick={(e) => handleMenuOpen(e, task)}>
                       <MoreVertIcon />
                     </IconButton>
                   </ListItem>
@@ -342,7 +524,9 @@ const MyTask: React.FC = () => {
                     <ListItemIcon>
                       <IconButton
                         onClick={() =>
-                          dispatch(undoTask({ taskId: task.TaskId, isMyTask: true }))
+                          dispatch(
+                            undoTask({ taskId: task.TaskId, isMyTask: true })
+                          )
                         }
                       >
                         <CheckCircleIcon color="primary" />
@@ -350,7 +534,10 @@ const MyTask: React.FC = () => {
                     </ListItemIcon>
                     <ListItemText
                       primary={
-                        <Typography fontWeight={500} sx={{ textDecoration: "line-through" }}>
+                        <Typography
+                          fontWeight={500}
+                          sx={{ textDecoration: "line-through" }}
+                        >
                           {task.Title}
                         </Typography>
                       }
@@ -361,7 +548,9 @@ const MyTask: React.FC = () => {
                           </Typography>
                           <br />
                           {(() => {
-                            const { label, time, type } = formatDueDate(task.TaskEndDate);
+                            const { label, time, type } = formatDueDate(
+                              task.TaskEndDate
+                            );
                             const style = getDueDateStyle(type);
                             return (
                               <span
@@ -381,6 +570,9 @@ const MyTask: React.FC = () => {
                         </>
                       }
                     />
+                    <IconButton onClick={(e) => handleMenuOpen(e, task)}>
+                      <MoreVertIcon />
+                    </IconButton>
                   </ListItem>
                 ))}
               </List>
@@ -423,6 +615,40 @@ const MyTask: React.FC = () => {
         onClose={() => setOpenAddTask(false)}
         currentUserId={1248} // Ideally from Redux
         onSuccess={() => fetchTaskData(page, rowsPerPage, search, filters)}
+      />
+      <Menu
+        anchorEl={menuAnchorEl}
+        open={Boolean(menuAnchorEl)}
+        onClose={handleMenuClose}
+      >
+        <MenuItem
+          onClick={() => {
+            handleMenuClose();
+          }}
+        >
+          <ListItemIcon>
+            <CommentIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Comment" />
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setOpenProgressReport(true);
+            handleMenuClose(false);
+          }}
+        >
+          <ListItemIcon>
+            <LinearScaleIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Progress" />
+        </MenuItem>
+      </Menu>
+      <ProgressReportModal
+        open={openProgressReport}
+        onClose={() => setOpenProgressReport(false)}
+        userName={menuTask?.AssignedToUsers?.[0]?.Name ?? "Unknown"}
+        employeeNo={menuTask?.AssignedToUsers?.[0]?.EmployeeNo ?? "N/A"}
+        progress={menuTask?.CompletionPercentage ?? 0}
       />
     </Box>
   );

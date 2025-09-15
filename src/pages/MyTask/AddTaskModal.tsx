@@ -30,6 +30,7 @@ import PeopleIcon from "@mui/icons-material/People";
 import ModeStandbyIcon from "@mui/icons-material/ModeStandby";
 import RoundIconButton from "./RoundIconButton";
 import AssignMemberModal from "./AssignMemberModal";
+import AddMembersModal from "./AddMembersModal";
 
 interface AddTaskModalProps {
   open: boolean;
@@ -60,10 +61,15 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
   const [titleError, setTitleError] = useState<boolean>(false);
 
   const [openMemberModal, setOpenMemberModal] = useState(false);
+  const [member, setMember] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<{
     id: string | number;
     label: string;
   } | null>(null);
+
+  const [selectedMembers, setSelectedMembers] = useState<
+    { UserId: number; Name: string }[]
+  >([]);
 
   // ---------- Time Slots ----------
   const timeSlots: string[] = [];
@@ -101,31 +107,30 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
     }
 
     const payload = {
+      Id: 0, // required
       Title: title,
       Description: description,
-      IntercomGroupIds: [] as number[],
-      AssignedByUserId: currentUserId,
-      AssignedToUserId: 0, // required
-      AssignedDate: startDate.format("MM-DD-YYYY"),
+      IntercomGroupIds: [],
+      AssignedBy: currentUserId,
+      AssignedToUserId: 0,
+      AssignedDate: dayjs().format("YYYY-MM-DD 00:00:00 A"), // full datetime
       CompletedDate: "",
-      TaskStartDate: startDate.format("MM-DD-YYYY hh:mm:ss A"),
-      TaskEndDate: endDate.format("MM-DD-YYYY hh:mm:ss A"),
-      Priority: "Low",
-      LeadId: selectedCustomer ? Number(selectedCustomer.id) : 0,
-      Location: "NA",
-      Longitude: 0,
-      Latitude: 0,
       CompletionPercentage: 0,
-      TaskStatus: "",
-      TaskType: "",
       IsActive: true,
       IsFavourite: false,
+      Latitude: 0,
+      Longitude: 0,
+      LeadId: selectedCustomer ? Number(selectedCustomer.id) : 0,
+      Location: "NA",
+      Priority: "Low",
       Target: 0,
-      TaskOwners: [] as any[],
-      TaskOwnerIds: [] as number[], // add empty array to match backend
+      TaskOwners: [],
+      TaskStartDate: dayjs().format("YYYY-MM-DD hh:mm:ss A"), // full datetime with AM/PM
+      TaskStatus: "",
+      TaskType: "",
       UserIds: [
         {
-          UserId: currentUserId,
+          UserId: currentUserId, // ✅ object, not just number
           Target: 0,
           TargetAchieved: 0,
           IsActive: true,
@@ -252,15 +257,16 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
               />
               <RoundIconButton
                 icon={<PersonAddIcon />}
-                title="Assign User"
+                title="Select Customer"
                 onClick={() => setOpenMemberModal(true)}
               />
-              <RoundIconButton icon={<PeopleIcon />} title="Add Team" />
-              <RoundIconButton icon={<AttachFileIcon />} title="Attach File" />
               <RoundIconButton
-                icon={<ModeStandbyIcon />}
-                title="Standby Mode"
+                icon={<PeopleIcon />}
+                title="Select Member"
+                onClick={() => setMember(true)}
               />
+              <RoundIconButton icon={<AttachFileIcon />} title="Attach File" />
+              <RoundIconButton icon={<ModeStandbyIcon />} title="Target" />
             </Box>
           </Box>
 
@@ -345,6 +351,15 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
         onSelect={(lead) => {
           setSelectedCustomer(lead);
           setOpenMemberModal(false);
+        }}
+      />
+
+      <AddMembersModal
+        open={member}
+        onClose={() => setMember(false)}
+        onSelect={(members) => {
+          setSelectedMembers(members); // ✅ Save multiple selected
+          setMember(false);
         }}
       />
     </>

@@ -3,7 +3,7 @@ export const LOGIN = "account/authenticate";
 
 // Task APIs
 export const TASK = "Task/v1/TaskDetails";
-export const ADD_TASK = "Task/AssignTask";
+export const ADD_TASK = "Task/v1/AddTask";
 export const DELETE_TASK = "Task/DeleteTask"; 
 export const UPDATE_TASK_STATUS = "Task/UpdateTaskStatus"; 
 export const UPDATE_TASK_FIELD = "Task/v1/TaskStatus";

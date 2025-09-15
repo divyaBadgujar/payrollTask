@@ -1,6 +1,12 @@
 import React from "react";
-import { Modal, Box, Typography, Button, IconButton } from "@mui/material";
-import Grid from "@mui/material/Grid";
+import {
+  Modal,
+  Box,
+  Typography,
+  Button,
+  IconButton,
+  Grid,
+} from "@mui/material";
 import CloseIcon from "@mui/icons-material/Close";
 
 interface Task {
@@ -34,51 +40,58 @@ const StatusModal: React.FC<StatusModalProps> = ({
           top: "50%",
           left: "50%",
           transform: "translate(-50%, -50%)",
-          width: 400,
+          width: 420,
           bgcolor: "background.paper",
-          p: "20px",
-          borderRadius: 1,
-          border: "1px solid #fff",
-          boxShadow: 24,
-          outline: "none",
+          borderRadius: 2,
+          p: 3,
         }}
       >
+        {/* Header */}
         <Box
           display="flex"
           justifyContent="space-between"
           alignItems="center"
           mb={2}
         >
-          <Typography variant="h6">Current status</Typography>
+          <Typography variant="h6" sx={{ fontWeight: 500 }}>
+            Current status
+          </Typography>
           <IconButton onClick={onClose} size="small">
             <CloseIcon />
           </IconButton>
         </Box>
 
-        <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.7 }}>
+        {/* Status Grid */}
+        <Grid container spacing={1.2}>
           {percentages.map((value) => (
-            <Box key={value} sx={{ width: "4.76%" }}>
-              {" "}
-              {/* 100% / 21 items ≈ 4.76% */}
+            <Grid item xs={3} key={value}>
               <Button
-                sx={{
-                  borderColor: "#d8dce6",
-                  color: "black",
-                  minWidth: "auto",
-                  width: "100%",
-                  fontSize: "0.75rem",
-                  padding: "4px 2px",
-                }}
+                fullWidth
                 variant={
                   task.CompletionPercentage === value ? "contained" : "outlined"
                 }
                 onClick={() => onStatusChange(task, value)}
+                sx={{
+                  textTransform: "none",
+                  borderRadius: "8px",
+                  borderColor: "#d8dce6",
+                  fontSize: "0.8rem",
+                  fontWeight: 500,
+                  color:
+                    task.CompletionPercentage === value ? "#fff" : "#000",
+                  "&:hover": {
+                    backgroundColor:
+                      task.CompletionPercentage === value
+                        ? "#1976d2"
+                        : "#f5f5f5",
+                  },
+                }}
               >
                 {value}%
               </Button>
-            </Box>
+            </Grid>
           ))}
-        </Box>
+        </Grid>
       </Box>
     </Modal>
   );
