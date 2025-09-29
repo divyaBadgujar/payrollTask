@@ -109,14 +109,21 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
       endDate = startDate.add(1, "hour");
     }
 
-    const payload = {
-      Id: 0, // required
+    // Build payload matching server schema (as per working example)
+    const userList = [
+      { UserId: Number(currentUserId), Name: "" },
+      ...selectedMembers.map((m) => ({ UserId: Number(m.UserId), Name: m.Name })),
+    ];
+
+    const serverPayload = {
+      __server: true, // marker to skip client formatting
+      Id: 0,
       Title: title,
       Description: description,
       IntercomGroupIds: [],
-      AssignedBy: currentUserId,
+      AssignedBy: Number(currentUserId),
       AssignedToUserId: 0,
-      AssignedDate: dayjs().format("YYYY-MM-DD 00:00:00 A"), // full datetime
+      AssignedDate: dayjs().format("YYYY-MM-DD"),
       CompletedDate: "",
       CompletionPercentage: 0,
       IsActive: true,
@@ -127,25 +134,20 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
       Location: "NA",
       Priority: "Low",
       Target: 0,
-      TaskOwners: [],
-      TaskStartDate: dayjs().format("YYYY-MM-DD hh:mm:ss A"), // full datetime with AM/PM
+      TaskOwners: userList.map((u) => ({ TaskId: 0, UserId: u.UserId, IntercomGroupId: 0 })),
+      TaskStartDate: dayjs().format("YYYY-MM-DD HH:mm:ss A"),
       TaskStatus: "",
       TaskType: "",
-      UserIds: [
-        {
-          UserId: currentUserId, // ✅ object, not just number
-          Target: 0,
-          TargetAchieved: 0,
-          IsActive: true,
-        },
-      ],
-    };
+      UserIds: userList.map((u) => ({
+        UserId: u.UserId,
+        UserName: u.Name || "",
+        Target: 0,
+        TargetAchieved: 0,
+        IsActive: true,
+      })),
+    } as any;
 
-    const formData = new FormData();
-    formData.append("data", JSON.stringify(payload));
-    attachments.forEach((file) => formData.append("files", file));
-
-    dispatch(addTask(formData) as any).then((res: any) => {
+    dispatch(addTask(serverPayload) as any).then((res: any) => {
       if (res.meta.requestStatus === "fulfilled") {
         handleClose();
         if (onSuccess) onSuccess();
@@ -424,8 +426,9 @@ const AddTaskModal: React.FC<AddTaskModalProps> = ({
       <AddMembersModal
         open={member}
         onClose={() => setMember(false)}
-        onSelect={(members) => {
-          setSelectedMembers(members); // ✅ Save multiple selected
+        onSelect={({ users, cc }) => {
+          const merged = [...users, ...cc];
+          setSelectedMembers(merged);
           setMember(false);
         }}
       />

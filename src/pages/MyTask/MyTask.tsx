@@ -153,9 +153,17 @@ const MyTask: React.FC = () => {
         type: "past",
       };
     if (dueDate.isBefore(today, "day")) {
-      const diff = today.diff(dueDate, "day");
+      const monthsDiff = today.diff(dueDate, "month");
+      if (monthsDiff >= 1) {
+        return {
+          label: `${monthsDiff} month${monthsDiff > 1 ? "s" : ""} ago`,
+          time: dueDate.format("h:mm A"),
+          type: "monthsAgo",
+        };
+      }
+      const daysDiff = today.diff(dueDate, "day");
       return {
-        label: `${diff} day${diff > 1 ? "s" : ""} ago`,
+        label: `${daysDiff} day${daysDiff > 1 ? "s" : ""} ago`,
         time: dueDate.format("h:mm A"),
         type: "past",
       };
@@ -173,6 +181,12 @@ const MyTask: React.FC = () => {
         return {
           border: "1px solid #1976d2",
           color: "#1976d2",
+          backgroundColor: "#fff",
+        };
+      case "monthsAgo":
+        return {
+          border: "1px solid #fd7e14",
+          color: "#fd7e14",
           backgroundColor: "#fff",
         };
       case "tomorrow":
@@ -420,14 +434,19 @@ const MyTask: React.FC = () => {
                           </Typography>
                           <br />
                           {(() => {
-                            const { label, time, type } = formatDueDate(
+                            const { label, time } = formatDueDate(
                               task.TaskEndDate
                             );
-                            const style = getDueDateStyle(type);
+                            // Always show completed task due date in green border with green text
+                            const completedStyle = {
+                              border: "1px solid #2e7d32",
+                              color: "#2e7d32",
+                              backgroundColor: "#fff",
+                            } as const;
                             return (
                               <span
                                 style={{
-                                  ...style,
+                                  ...completedStyle,
                                   padding: "2px 8px",
                                   borderRadius: "12px",
                                   fontSize: "12px",
@@ -619,7 +638,7 @@ const MyTask: React.FC = () => {
       <Menu
         anchorEl={menuAnchorEl}
         open={Boolean(menuAnchorEl)}
-        onClose={handleMenuClose}
+        onClose={() => handleMenuClose()}
       >
         <MenuItem
           onClick={() => {

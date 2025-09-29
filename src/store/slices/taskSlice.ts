@@ -122,7 +122,10 @@ export const addTask = createAsyncThunk<void, any>(
   "task/addTask",
   async (payload, { dispatch, rejectWithValue }) => {
     try {
-      const data = await formatData(payload);
+      // If payload already matches server schema, send as-is
+      const shouldBypassFormatting = payload && (payload.__server === true || ("Id" in payload && "AssignedBy" in payload));
+
+      const data = shouldBypassFormatting ? payload : await formatData(payload);
       await privateAPI.post(ADD_TASK, data);
       toast.success("Task added successfully");
       dispatch(fetchTasks(defaultTaskPayload));
